@@ -89,6 +89,11 @@ extern void packet_init();
 
 //! Called at boot.  Gracefully fails if no radio.
 void radio_init(){
+#ifdef REHOST
+  // Rehost mode: no radio hardware, just mark as unavailable
+  has_radio = 0;
+  printf("radio: rehost mode, radio disabled.\n");
+#else
   /* If the radio components are missing, the AVCC_RF lines will be
      unconnected and the radio will immediately have a low voltage error.
   */
@@ -104,6 +109,7 @@ void radio_init(){
 	 has_radio?"a":"no");
   
   radio_off();
+#endif
 }
 
 //! Turns the radio on.  Returns zero on failure.

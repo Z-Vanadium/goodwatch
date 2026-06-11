@@ -26,7 +26,11 @@ void ucs_slow(){
 void ucs_init(){
   uint16_t i=0;
   
-
+#ifdef REHOST
+  // Rehost mode: skip oscillator stabilization, no real hardware
+  (void)i;
+  printf("ucs: rehost mode, skipping oscillator init.\n");
+#else
   // Loop until XT1 & DCO stabilizes
   do{
     if(i++==0){
@@ -43,6 +47,7 @@ void ucs_init(){
 
   UCSCTL6 &= ~(XT1DRIVE_3);                 // Xtal is now stable, reduce drive
                                             // strength
+#endif
   //See page 125 of the family guide.
   ucs_fast();
 }

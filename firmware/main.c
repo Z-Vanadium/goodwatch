@@ -115,8 +115,13 @@ int main(void) {
 
   printf("Beginning POST.\n");
   lcd_string("POSTPOST");
+#ifdef REHOST
+  // Rehost mode: fake a successful POST
+  printf("Rehost mode: skipping POST checks.\n");
+#else
   // Run the POST until it passes.
   while(post());
+#endif
 
   //Finally we initialize the application.
   lcd_zero();
@@ -157,14 +162,36 @@ int main(void) {
   
 
   printf("Booted.\n");
+#ifdef REHOST
+  /* Rehost mode: simulate WDT-driven main loop instead of LPM3 sleep.
+     Each iteration represents one WDT interrupt (~250ms real time). */
+  {
+    volatile int rehost_ticks = 0;
+    volatile int *rehost_marker = (volatile int*)0x2800;  /* just past dmesg */
+    
+    printf("Rehost: entering simulated main loop (40 ticks = 10s).\n");
+    while (rehost_ticks < 40) {
+      /* Simulate WDT ISR: redraw applet */
+      static int trigger = 0;
+      if (trigger++ & 3) {  /* redraw every 4th tick to match ~1s clock redraw */
+        lcd_predraw();
+        app_draw(0);
+        lcd_postdraw();
+      }
+      
+      rehost_ticks++;
+    }
+    
+    printf("Rehost: simulation complete after %d ticks.\n", rehost_ticks);
+    *rehost_marker = 0xDEAD;  /* signal simulation end to host */
+    while(1) { /* busy-wait forever */ }
+  }
+#else
   __bis_SR_register(LPM3_bits + GIE);        // Enter LPM3
   while(1){
-    /* These dots oughtn't appear in dmesg, because the main thread
-       ought to be paused with all processing in interrupts.  If this
-       code executes, we've got a power management problem.
-     */
     printf(".");
   }
+#endif
 }
 
 //! Watchdog Timer interrupt service routine, calls back to handler functions.
