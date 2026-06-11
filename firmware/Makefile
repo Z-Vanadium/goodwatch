@@ -117,10 +117,14 @@ endif
 
 
 
-#GCC8 from Texas Instruments, not the GCC4 that ships with Debian.
-CC = msp430-elf-gcc -msmall -mmcu=cc430f6137 -Wall -I. -I/opt/msp430-gcc-support-files/include -Os  $(addprefix -D, $(APPS_DEFINES)) -Wl,--gc-sections,--print-gc-sections -fdata-sections -ffunction-sections -fno-asynchronous-unwind-tables -flto
+# Add MSP430 GCC toolchain to PATH.  Adjust MSP430_GCC to your install location.
+MSP430_GCC ?= $(HOME)/msp430-gcc
+export PATH := $(MSP430_GCC)/bin:$(PATH)
 
-BSL = ../bin/cc430-bsl.py -r 38400 -p $(PORT)
+#GCC8 from Texas Instruments, not the GCC4 that ships with Debian.
+CC = msp430-elf-gcc -msmall -mmcu=cc430f6137 -Wall -I. -I$(MSP430_GCC)/msp430-gcc-support-files/include -Os  $(addprefix -D, $(APPS_DEFINES)) -Wl,--gc-sections,--print-gc-sections -fdata-sections -ffunction-sections -fno-asynchronous-unwind-tables -flto
+
+BSL = python3 ../bin/cc430-bsl.py -r 38400 -p $(PORT)
 
 modules=rtcasm-r12.o lcd.o lcdtext.o rtc.o  keypad.o bcd.o apps.o\
 	applist.o adc.o ref.o codeplugstr.o \
@@ -138,14 +142,14 @@ all: goodwatch.hex
 githash.h:
 	echo "#define GITHASH" 0x`git rev-parse HEAD | head -c7` > githash.h
 buildtime.h:
-	../bin/buildtime.py >buildtime.h
+	python3 ../bin/buildtime.py >buildtime.h
 
 goodwatch.elf: $(modules) $(apps) *.h main.c
 	$(CC)  -T cc430f6137.ld -o goodwatch.elf main.c $(modules) $(apps)
-	../bin/printsizes.py goodwatch.elf || echo "Please install python-pyelftools."
+	python3 ../bin/printsizes.py goodwatch.elf || echo "Please install python-pyelftools."
 rftest.elf: $(modules) $(apps) *.h main.c
 	$(CC) -DRFTEST  -T cc430f6137.ld -o rftest.elf main.c $(modules) $(apps)
-	../bin/printsizes.py rftest.elf || echo "Please install python-pyelftools."
+	python3 ../bin/printsizes.py rftest.elf || echo "Please install python-pyelftools."
 
 goodwatch.hex: goodwatch.elf
 	msp430-elf-objcopy -O ihex goodwatch.elf goodwatch.hex
@@ -177,12 +181,12 @@ sbwdmesg:
 #Same as dmesg, but it gives the target some time to boot first.
 run:
 	sleep 5
-	../bin/cc430-bsl.py -p $(PORT) -P goodwatch.hex -uD
+	python3 ../bin/cc430-bsl.py -p $(PORT) -P goodwatch.hex -uD
 
 codeplug.hex: codeplug.txt
-	../bin/goodwatch-txt2cp.py -i codeplug.txt -o codeplug.hex
+	python3 ../bin/goodwatch-txt2cp.py -i codeplug.txt -o codeplug.hex
 codeplugstr.c: codeplug.txt
-	../bin/goodwatch-txt2cpstr.py -i codeplug.txt -o codeplugstr.c
+	python3 ../bin/goodwatch-txt2cpstr.py -i codeplug.txt -o codeplugstr.c
 flashcp: codeplug.hex
 	$(BSL) -Ef codeplug.hex
 
@@ -199,7 +203,7 @@ energytrace: goodwatch.hex sbwflash
 	energytrace 60 > energytrace.txt #This will take a minute.
 	gnuplot energytrace.gnuplot
 	gnuplot energytrace-txt.gnuplot
-	../bin/batterylife.py <energytrace.txt
+	python3 ../bin/batterylife.py <energytrace.txt
 
 docs:
 	doxygen
